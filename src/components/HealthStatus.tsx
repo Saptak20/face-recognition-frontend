@@ -22,6 +22,7 @@ export function HealthStatus() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     fetchHealth();
     const interval = setInterval(fetchHealth, 30000);
     return () => clearInterval(interval);
@@ -41,6 +42,11 @@ export function HealthStatus() {
     'embedding_extractor',
     'database_manager',
     'auth_engine',
+  ].includes(key);
+
+  const isExperimentalComponent = (key: string) => [
+    'liveness_detector',
+    'deepfake_detector',
   ].includes(key);
 
   if (isLoading && !health) {
@@ -70,18 +76,22 @@ export function HealthStatus() {
     );
   }
 
-  const overallHealthy = health?.status === 'healthy';
-  const disabledCount = health
-    ? Object.entries(health.components).filter(([k, v]) => !v && !isCoreComponent(k)).length
-    : 0;
+  const components = health?.components;
+  if (!health || !components) {
+    return null;
+  }
+
+  const coreComponentsHealthy = Object.entries(components)
+    .filter(([k]) => isCoreComponent(k))
+    .every(([, v]) => v);
 
   return (
-    <section className={`card health-status ${overallHealthy ? 'healthy' : 'unhealthy'}`} aria-labelledby="health-heading">
+    <section className={`card health-status ${coreComponentsHealthy ? 'healthy' : 'unhealthy'}`} aria-labelledby="health-heading">
       <header className="health-header">
         <h2 id="health-heading">System Health</h2>
-        <div className={`health-indicator ${overallHealthy ? 'healthy' : 'unhealthy'}`} aria-live="polite">
+        <div className={`health-indicator ${coreComponentsHealthy ? 'healthy' : 'unhealthy'}`} aria-live="polite">
           <span className="indicator-dot" aria-hidden="true"></span>
-          <span>{overallHealthy ? 'Healthy' : 'Unhealthy'}</span>
+          <span>{coreComponentsHealthy ? 'Face Recognition: Available' : 'Face Recognition: Unavailable'}</span>
           <button onClick={fetchHealth} className="btn btn-ghost btn-sm" aria-label="Refresh health status">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M23 4v6h-6"></path>
@@ -93,38 +103,52 @@ export function HealthStatus() {
       </header>
 
       <div className="components-grid">
-        {health && Object.entries(health.components).map(([key, value]) => (
-          <div key={key} className={`component-item ${value ? 'healthy' : 'unhealthy'} ${isCoreComponent(key) ? 'core' : 'optional'}`}>
-            <div className="component-info">
-              <span className={`component-status ${value ? 'healthy' : 'unhealthy'}`} aria-hidden="true"></span>
-              <span className="component-name">{componentLabels[key] || key}</span>
-              {!isCoreComponent(key) && (
-                <span className="component-badge optional">Optional</span>
-              )}
+        {Object.entries(components).map(([key, value]) => {
+          const isCore = isCoreComponent(key);
+          const isExperimental = isExperimentalComponent(key);
+          let badge = null;
+          let statusText = value ? 'Available' : 'Unavailable';
+
+          if (isExperimental && value) {
+            badge = <span className="component-badge experimental">Experimental</span>;
+            statusText = 'Experimental / Not Validated';
+          } else if (isExperimental && !value) {
+            badge = <span className="component-badge unavailable">Unavailable</span>;
+            statusText = 'Unavailable / Not Validated';
+          } else if (!isCore && !value) {
+            badge = <span className="component-badge unavailable">Unavailable</span>;
+          }
+
+          return (
+            <div key={key} className={`component-item ${value ? 'healthy' : 'unhealthy'} ${isCore ? 'core' : 'optional'}`}>
+              <div className="component-info">
+                <span className={`component-status ${value ? 'healthy' : 'unhealthy'}`} aria-hidden="true"></span>
+                <span className="component-name">{componentLabels[key] || key}</span>
+                {badge}
+              </div>
+              <span className={`component-value ${value ? 'healthy' : 'unhealthy'}`}>
+                {value ? '✓' : '✗'}
+              </span>
+              <span className="component-status-text">{statusText}</span>
             </div>
-            <span className={`component-value ${value ? 'healthy' : 'unhealthy'}`}>
-              {value ? '✓' : '✗'}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {disabledCount > 0 && (
-        <div className="health-warning" role="alert">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-            <line x1="12" y1="9" x2="12" y2="13"></line>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          <div className="warning-content">
-            <strong>Liveness and deepfake detection are currently disabled.</strong>
-            <p>This demo does not verify whether a face is live or spoofed. These models are disabled for memory optimization on the free hosting tier.</p>
-          </div>
+      <div className="health-warning" role="status">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <div className="warning-content">
+          <strong>Anti-spoofing models are not production-ready.</strong>
+          <p>Liveness detection is experimental and may produce false results. Deepfake detection is not validated. Do not rely on these for security-critical applications.</p>
         </div>
-      )}
+      </div>
 
       <footer className="health-footer">
-        <small>Last checked: {health ? new Date(health.timestamp).toLocaleString() : '—'}</small>
+        <small>Last checked: {new Date(health.timestamp).toLocaleString()}</small>
       </footer>
     </section>
   );
