@@ -6,7 +6,7 @@ A polished, responsive React + Vite + TypeScript frontend for the Face Recogniti
 
 The backend API is deployed at:
 ```
-https://face-recognition-with-anti-spoofing.onrender.com/api/v1
+https://saptak22-face-auth-api.hf.space/api/v1
 ```
 
 ## Features
@@ -93,7 +93,7 @@ npm run preview
 1. Push this repository to GitHub
 2. Import in Vercel: `vercel import <github-repo>`
 3. Add Environment Variable:
-   - `VITE_API_BASE_URL` = `https://face-recognition-with-anti-spoofing.onrender.com/api/v1`
+   - `VITE_API_BASE_URL` = `https://saptak22-face-auth-api.hf.space/api/v1`
 4. Deploy
 
 ### Netlify
